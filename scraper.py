@@ -4,7 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL="https://worldhookahmarket.com"
-PROGRESS_FILE="products_progress.json"
+FRESH_DIR="fresh_scrape"
+PROGRESS_FILE=os.path.join(FRESH_DIR,"progress.json")
 PART_SIZE=1000
 FRESH_SCRAPE=os.getenv("FRESH_SCRAPE","0")=="1"
 
@@ -17,8 +18,7 @@ def is_product_url(url):
 def same_domain(url): return urlparse(url).netloc.lower() in {"worldhookahmarket.com","www.worldhookahmarket.com"}
 def get_page(url):
  try:
-  r=session.get(url,timeout=60)
-  return r.text if r.status_code==200 else None
+  r=session.get(url,timeout=60); return r.text if r.status_code==200 else None
  except Exception as e: print(f"REQUEST ERROR: {e}"); return None
 
 def text_one(soup,selectors):
@@ -55,7 +55,7 @@ def images(soup,page):
   for img in soup.select(s):
    vals=[img.get(a) for a in ("data-large_image","data-src","data-lazy-src","data-original","src")]
    ss=img.get("data-srcset") or img.get("srcset")
-   if ss: vals += [x.strip().split()[0] for x in ss.split(",") if x.strip()]
+   if ss:vals += [x.strip().split()[0] for x in ss.split(",") if x.strip()]
    for v in vals:
     if not v:continue
     u=urljoin(page,str(v).strip())
@@ -100,12 +100,14 @@ def extract(url):
  return {"product_name":name,"description":desc,"price":p,"sku":sku,"brand":b,"category":c,"image_urls":imgs,"product_url":clean_url(url)}
 
 def save_parts(products):
- for fn in [x for x in os.listdir(".") if re.fullmatch(r"products-\d+\.json",x)]:
-  try:os.remove(fn)
-  except:pass
+ os.makedirs(FRESH_DIR,exist_ok=True)
+ for fn in os.listdir(FRESH_DIR):
+  if re.fullmatch(r"products-\d+\.json",fn):
+   try:os.remove(os.path.join(FRESH_DIR,fn))
+   except:pass
  for i in range(0,len(products),PART_SIZE):
   n=i//PART_SIZE+1
-  with open(f"products-{n}.json","w",encoding="utf-8") as f:json.dump(products[i:i+PART_SIZE],f,ensure_ascii=False,indent=2)
+  with open(os.path.join(FRESH_DIR,f"products-{n}.json"),"w",encoding="utf-8") as f:json.dump(products[i:i+PART_SIZE],f,ensure_ascii=False,indent=2)
 
 def links():
  q=[BASE_URL];seen=set();prods=set()
@@ -126,7 +128,8 @@ def links():
  return sorted(prods)
 
 def main():
- print(f"Fresh scrape: {'YES' if FRESH_SCRAPE else 'NO'} | Part size: {PART_SIZE}")
+ os.makedirs(FRESH_DIR,exist_ok=True)
+ print(f"Fresh scrape: {'YES' if FRESH_SCRAPE else 'NO'} | Output: {FRESH_DIR}/ | Part size: {PART_SIZE}")
  urls=links()
  if not urls:return
  products=[]
@@ -134,9 +137,9 @@ def main():
   print(f"[{i}/{len(urls)}] {u}")
   try:
    p=extract(u)
-   if p:products.append(p); print(f" ✓ {p['product_name']} | {p['brand']} | {p['category']} | Images: {len(p['image_urls'])}")
+   if p:products.append(p);print(f" ✓ {p['product_name']} | {p['brand']} | {p['category']} | Images: {len(p['image_urls'])}")
   except Exception as e:print(f" ERROR: {e}")
-  if i%50==0:save_parts(products); print(f"  Saved {len(products)} products across {((len(products)-1)//PART_SIZE)+1 if products else 0} files")
+  if i%50==0:save_parts(products);print(f"  Saved {len(products)} products in {FRESH_DIR}/")
   time.sleep(.3)
  save_parts(products)
  with open(PROGRESS_FILE,"w",encoding="utf-8") as f:json.dump(products,f,ensure_ascii=False,indent=2)
