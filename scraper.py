@@ -4,7 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL="https://worldhookahmarket.com"
-FRESH_DIR="fresh_scrape"
+ROOT_DIR=os.path.dirname(os.path.abspath(__file__))
+FRESH_DIR=os.path.join(ROOT_DIR,"fresh_scrape")
 PROGRESS_FILE=os.path.join(FRESH_DIR,"progress.json")
 PART_SIZE=1000
 FRESH_SCRAPE=os.getenv("FRESH_SCRAPE","0")=="1"
@@ -129,7 +130,7 @@ def links():
 
 def main():
  os.makedirs(FRESH_DIR,exist_ok=True)
- print(f"Fresh scrape: {'YES' if FRESH_SCRAPE else 'NO'} | Output: {FRESH_DIR}/ | Part size: {PART_SIZE}")
+ print(f"Fresh scrape: {'YES' if FRESH_SCRAPE else 'NO'} | Output: {FRESH_DIR} | Part size: {PART_SIZE}")
  urls=links()
  if not urls:return
  products=[]
@@ -139,7 +140,7 @@ def main():
    p=extract(u)
    if p:products.append(p);print(f" ✓ {p['product_name']} | {p['brand']} | {p['category']} | Images: {len(p['image_urls'])}")
   except Exception as e:print(f" ERROR: {e}")
-  if i%50==0:save_parts(products);print(f"  Saved {len(products)} products in {FRESH_DIR}/")
+  if i%50==0:save_parts(products);print(f"  Saved {len(products)} products in {FRESH_DIR}")
   time.sleep(.3)
  save_parts(products)
  with open(PROGRESS_FILE,"w",encoding="utf-8") as f:json.dump(products,f,ensure_ascii=False,indent=2)
